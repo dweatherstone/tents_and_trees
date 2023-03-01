@@ -1,5 +1,7 @@
 pub mod board;
 
+// use tents_and_trees_lib::test;
+
 fn main() {
     let mut tents_and_trees = board::read_board(&String::from("./sample_board.txt"));
     tents_and_trees.print_board();

@@ -3,6 +3,14 @@ name = "tents_and_trees"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "tents_and_trees_lib"
+path = "src/board.rs"
+
+[[bin]]
+name = "run_tents_and_trees"
+path = "src/main.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]

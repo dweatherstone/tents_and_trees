@@ -72,6 +72,20 @@ impl Board {
         has_changed
     }
 
+    pub fn only_space_for_tents(&mut self) -> bool {
+        let mut rows_changed = false;
+        let mut cols_changed = false;
+        for row_num in 0..self.size {
+            let this_row_changed = self.only_space_for_tents_row(row_num);
+            rows_changed = rows_changed || this_row_changed;
+        }
+        for col_num in 0..self.size {
+            let this_col_changed = self.only_space_for_tents_col(col_num);
+            cols_changed = cols_changed || this_col_changed;
+        }
+        return rows_changed || cols_changed;
+    }
+
     pub fn is_complete(&self) -> bool {
         for row_num in 0..self.size {
             if !self.is_row_complete(row_num) {
@@ -81,8 +95,7 @@ impl Board {
         return true;
     }
 
-    pub fn print_board(&self) {
-        println!();
+    pub fn get_board_state(&self) -> String {
         let mut print_string = String::from(" | ");
         for col_count in self.column_counts.iter() {
             let col_val = match col_count {
@@ -114,7 +127,12 @@ impl Board {
             }
             print_string.push_str("\n");
         }
-        print!("{}", print_string);
+        print_string
+    }
+
+    pub fn print_board(&self) {
+        println!();
+        print!("{}", self.get_board_state());
     }
 
     fn has_placed_tent(&mut self, row_num: usize, col_num: usize) -> bool {
@@ -173,9 +191,9 @@ impl Board {
     }
 
     fn surround_tent_with_empty(&mut self, row_num: usize, col_num: usize) {
-        let start_row: usize = max(0, row_num-1);
+        let start_row: usize = max(0, row_num as i8 - 1) as usize;
         let end_row: usize = min(self.size-1, row_num + 1);
-        let start_col: usize = max(0, col_num-1);
+        let start_col: usize = max(0, col_num as i8 - 1) as usize;
         let end_col: usize = min(self.size-1, col_num + 1);
         for row in start_row..end_row+1 {
             for col in start_col..end_col+1 {
@@ -245,17 +263,65 @@ impl Board {
         if row_count == -1 {
             return false;
         }
+        let mut has_updated = false;
         if count == row_count {
             let row = self.board.get_mut(row_num).expect("Row num not fount");
             for cell in row.iter_mut() {
                 if let CellStatus::Unknown = cell {
                     *cell = CellStatus::Empty;
+                    has_updated = true;
                 }
             }
-            return true;
-        } else {
+        } 
+        has_updated
+    }
+
+    fn only_space_for_tents_row(&mut self, row_num: usize) -> bool {
+        let count = self.get_unknown_or_tent_row_count(row_num);
+        let row_count = match self.row_counts.get(row_num).expect("Cannot find row val") {
+            Some(val) => *val,
+            None => -1,
+        };
+        if row_count == -1 {
             return false;
         }
+        let mut has_updated = false;
+        if count == row_count {
+            for col_num in 0..self.size {
+                if let CellStatus::Unknown = self.board[row_num][col_num] {
+                    self.board[row_num][col_num] = CellStatus::Tent;
+                    self.surround_tent_with_empty(row_num, col_num);
+                    has_updated = true;
+                }
+            }
+        }
+        has_updated
+    }
+
+    fn get_unknown_or_tent_row_count(&self, row_num: usize) -> i8 {
+        let mut count: i8 = 0;
+        let row = self.board.get(row_num).expect("Row num not fount");
+        for cell in row.iter() {
+            if cell == &CellStatus::Unknown || cell == &CellStatus::Tent {
+                count += 1;
+            }
+        }
+        count
+    }
+
+    fn get_unknown_or_tent_col_count(&self, col_num: usize) -> i8 {
+        let mut count: i8 = 0;
+        let mut col: Vec<CellStatus> = Vec::new();
+        for row in self.board.iter() {
+            let cell = row.get(col_num).expect("Cannot find value!");
+            col.push(*cell);
+        }
+        for cell in col.iter() {
+            if cell == &CellStatus::Unknown || cell == &CellStatus::Tent {
+                count += 1;
+            }
+        }
+        count
     }
 
     // fn is_col_complete(&self, col_num: usize) -> bool {
@@ -294,17 +360,40 @@ impl Board {
             Some(val) => col_count = *val,
             None => return false
         }
+        let mut has_updated = false;
         if count == col_count {
             for row_num in 0..self.size {
                 if let CellStatus::Unknown = self.board[row_num][col_num] {
                     self.board[row_num][col_num] = CellStatus::Empty;
+                    has_updated = true;
                 }
             }
-            return true;
-        } else {
+        } 
+        has_updated
+    }
+
+    fn only_space_for_tents_col(&mut self, col_num: usize) -> bool {
+        let count = self.get_unknown_or_tent_col_count(col_num);
+        let col_count = match self.column_counts.get(col_num).expect("Cannot find col val") {
+            Some(val) => *val,
+            None => -1,
+        };
+        if col_count == -1 {
             return false;
         }
+        let mut has_updated = false;
+        if count == col_count {
+            for row_num in 0..self.size {
+                if let CellStatus::Unknown = self.board[row_num][col_num] {
+                    self.board[row_num][col_num] = CellStatus::Tent;
+                    self.surround_tent_with_empty(row_num, col_num);
+                    has_updated = true;
+                }
+            }
+        }
+        has_updated
     }
+
 }
 
 pub fn read_board(filename: &String) -> Board {
@@ -479,6 +568,23 @@ mod tests {
         assert_eq!(test_board.board.len(), 6);
     }
 
+    #[test]
+    fn test_only_space_for_tents() {
+        let mut test_board = create_small_test_board();
+        let result = test_board.only_space_for_tents();
+        let expected_col_counts: Vec<Option<i8>> = vec![Some(1), None];
+        let expected_row_counts: Vec<Option<i8>> = vec![None, None];
+        let expected_size = 2;
+        let expected_row1: Vec<CellStatus> = vec![CellStatus::Tree, CellStatus::Empty];
+        let expected_row2: Vec<CellStatus> = vec![CellStatus::Tent, CellStatus::Empty];
+        assert!(result);
+        assert_eq!(test_board.column_counts, expected_col_counts);
+        assert_eq!(test_board.row_counts, expected_row_counts);
+        assert_eq!(test_board.size, expected_size);
+        assert_eq!(test_board.board[0], expected_row1);
+        assert_eq!(test_board.board[1], expected_row2);
+    }
+
     fn create_test_board() -> Board {
         let mut board: Vec<Vec<CellStatus>> = Vec::new();
         let row1 = vec![CellStatus::Tent, CellStatus::Unknown, CellStatus::Unknown];
@@ -493,6 +599,18 @@ mod tests {
             column_counts: vec![Some(1),None,Some(2)],
             row_counts: vec![Some(1),None,Some(2)],
             board,    
+        }
+    }
+
+    fn create_small_test_board() -> Board {
+        Board {
+            size: 2,
+            column_counts: vec![Some(1), None],
+            row_counts: vec![None, None],
+            board: vec![
+                vec![CellStatus::Tree, CellStatus::Unknown],
+                vec![CellStatus::Unknown, CellStatus::Unknown],
+            ]
         }
     }
 }
