@@ -1,4 +1,4 @@
-#Tents and Trees Solver
+# Tents and Trees Solver
 
 This is a simple solver for the Tents and Trees (for example, [this game](https://play.google.com/store/apps/details?id=com.frozax.tentsandtrees&hl=en_GB&pli=1)).
 
